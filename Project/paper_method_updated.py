@@ -3,22 +3,17 @@ import numpy as np
 import os
 import copy
 
-# ==========================================
-# CONFIGURATION
-# ==========================================
 BASE_DIR = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls'
 INPUT_ROOT = BASE_DIR
 OUTPUT_ROOT = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\Paper_Results_Updated'
 SUBFOLDERS = ['puzzle_2x2', 'puzzle_4x4', 'puzzle_8x8']
 
-# YOUR OPTIMIZED CARTOON WEIGHTS
+
 W_COLOR = 1
 W_GRADIENT = 0.2
 W_EDGE_CONTINUITY = 15 
 
-# ==========================================
-# 1. PREPROCESSING (Unchanged)
-# ==========================================
+
 def smart_crop(img):
     if img is None: return None
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -42,18 +37,16 @@ def get_canny_edges(img):
     edges = cv2.Canny(gray, 50, 150)
     return edges
 
-# ==========================================
-# 2. METRIC (Unchanged)
-# ==========================================
+
 def get_match_cost(piece_a, piece_b, edge_a_map, edge_b_map, relation):
     A = cv2.cvtColor(piece_a, cv2.COLOR_BGR2LAB).astype(np.float32)
     B = cv2.cvtColor(piece_b, cv2.COLOR_BGR2LAB).astype(np.float32)
     
-    if relation == 0: # Left | Right
+    if relation == 0: 
         p_edge_a, p_edge_b = A[:, -1, :], B[:, 0, :]
         p_inner_a = A[:, -2, :] 
         bin_a, bin_b = edge_a_map[:, -1], edge_b_map[:, 0]
-    else: # Top / Bottom
+    else: 
         p_edge_a, p_edge_b = A[-1, :, :], B[0, :, :]
         p_inner_a = A[-2, :, :] 
         bin_a, bin_b = edge_a_map[-1, :], edge_b_map[0, :]
@@ -77,9 +70,7 @@ def get_match_cost(piece_a, piece_b, edge_a_map, edge_b_map, relation):
     total_cost = (W_COLOR * color_diff) + (W_GRADIENT * grad_cost) + (W_EDGE_CONTINUITY * edge_cost)
     return total_cost
 
-# ==========================================
-# 3. HELPER: BEST BUDDIES & SCORING
-# ==========================================
+
 def calculate_best_buddies_score(grid, costs):
     h, w = grid.shape
     buddies = 0
@@ -110,26 +101,23 @@ def calculate_best_buddies_score(grid, costs):
                         
     return buddies / total_joints if total_joints > 0 else 0
 
-# ==========================================
-# 4. SOLVER CORE (Modified to accept partial seeds)
-# ==========================================
+
 def solve_single_run(pieces, grid_n, costs, initial_grid=None, use_noise=False):
     num_pieces = len(pieces)
     
-    # Noise injection (Crucial for escaping local minima)
+ 
     run_costs = costs.copy()
     if use_noise:
         noise = np.random.normal(0, 0.05, run_costs.shape) * run_costs
         run_costs += noise
 
-    # --- INITIALIZATION ---
+ 
     grid_size = grid_n * 3
     grid = np.full((grid_size, grid_size), -1, dtype=int)
     placed = set()
 
     if initial_grid is not None:
-        # Use the provided segment as the seed
-        # Center the segment in the new large grid
+
         rows, cols = np.where(initial_grid != -1)
         h_seg = rows.max() - rows.min() + 1
         w_seg = cols.max() - cols.min() + 1
@@ -142,11 +130,10 @@ def solve_single_run(pieces, grid_n, costs, initial_grid=None, use_noise=False):
             grid[new_r, new_c] = initial_grid[r, c]
             placed.add(initial_grid[r, c])
     else:
-        # Standard Smart Seeding (Your original logic)
-        # Find best pair
+
         best_seed_val = np.inf
         seed_pair = (0, 1, 0)
-        edge_maps = [get_canny_edges(p) for p in pieces] # Recomputing locally for simplicity
+        edge_maps = [get_canny_edges(p) for p in pieces] 
         activity = [np.sum(e)/255.0 for e in edge_maps]
         avg_act = np.mean(activity)
 
@@ -168,7 +155,7 @@ def solve_single_run(pieces, grid_n, costs, initial_grid=None, use_noise=False):
         else: grid[sy+1, sx] = p2
         placed = {p1, p2}
 
-    # --- GREEDY FILL LOOP ---
+
     while len(placed) < num_pieces:
         rows, cols = np.where(grid != -1)
         possible_slots = set()
@@ -216,18 +203,14 @@ def solve_single_run(pieces, grid_n, costs, initial_grid=None, use_noise=False):
         else:
             break
 
-    # Crop
+
     rows = np.any(grid != -1, axis=1)
     cols = np.any(grid != -1, axis=0)
     return grid[rows][:, cols]
 
-# ==========================================
-# 5. NEW: SEGMENTATION & SHIFTER LOGIC
-# ==========================================
+
 def find_largest_consistent_segment(grid, costs):
-    """
-    Finds the largest chunk of pieces connected entirely by 'Best Buddy' relationships.
-    """
+
     h, w = grid.shape
     visited = np.zeros((h, w), dtype=bool)
     max_segment = []
@@ -247,17 +230,17 @@ def find_largest_consistent_segment(grid, costs):
                 current_segment.append((curr_r, curr_c, pid))
                 
                 # Check neighbors for Best Buddy Status
-                # RIGHT
+                # Right
                 if curr_c + 1 < w and grid[curr_r, curr_c+1] != -1:
                     nid = grid[curr_r, curr_c+1]
-                    # Are they best buddies?
+                    
                     bp = np.argmin(costs[pid, :, 0])
                     bn = np.argmin(costs[nid, :, 2])
                     if bp == nid and bn == pid and not visited[curr_r, curr_c+1]:
                         visited[curr_r, curr_c+1] = True
                         queue.append((curr_r, curr_c+1))
                 
-                # DOWN
+                # Down
                 if curr_r + 1 < h and grid[curr_r+1, curr_c] != -1:
                     nid = grid[curr_r+1, curr_c]
                     bp = np.argmin(costs[pid, :, 1])
@@ -269,7 +252,7 @@ def find_largest_consistent_segment(grid, costs):
             if len(current_segment) > len(max_segment):
                 max_segment = current_segment
                 
-    # Create a grid containing ONLY the max segment
+    # Create a grid containing max segment
     if not max_segment: return None
     
     # Normalize coordinates
@@ -287,29 +270,19 @@ def find_largest_consistent_segment(grid, costs):
     return segment_grid
 
 def run_shifter_phase(pieces, grid_n, initial_best_grid, costs):
-    """
-    Paper Section 3.3: 
-    1. Take largest segment from current result.
-    2. Use it as a seed to re-solve.
-    3. Repeat until score stops improving.
-    """
+
     current_grid = initial_best_grid
     current_score = calculate_best_buddies_score(current_grid, costs)
-    print(f"    [Shifter] Start Score: {current_score:.2f}")
+
     
-    for i in range(10): # Cap iterations to prevent infinite loops
-        # 1. Segmenter: Find largest best-buddy chunk
+    for i in range(10): 
         segment = find_largest_consistent_segment(current_grid, costs)
-        
         if segment is None: break
-        
-        # If the segment is the whole puzzle, we are done
         count_placed = np.sum(segment != -1)
         if count_placed == len(pieces): 
             break
             
-        # 2. Shifter: Re-run solver using this segment as the "Anchor"
-        # We perform one deterministic run using the segment
+        
         new_grid = solve_single_run(pieces, grid_n, costs, initial_grid=segment, use_noise=False)
         
         if new_grid is None or new_grid.shape[0] > grid_n or new_grid.shape[1] > grid_n:
@@ -327,9 +300,7 @@ def run_shifter_phase(pieces, grid_n, initial_best_grid, costs):
             
     return current_grid
 
-# ==========================================
-# 6. MAIN HYBRID SOLVER
-# ==========================================
+
 def solve_puzzle_hybrid(pieces, grid_n):
     num_pieces = len(pieces)
     edge_maps = [get_canny_edges(p) for p in pieces]
@@ -344,12 +315,12 @@ def solve_puzzle_hybrid(pieces, grid_n):
             costs[i, j, 0] = c_right; costs[j, i, 2] = c_right
             costs[i, j, 1] = c_down;  costs[j, i, 3] = c_down
 
-    # --- PART 1: STOCHASTIC GREEDY (Your Original Success) ---
+   
     best_grid = None
     best_score = -1
     
     print("  Phase 1: Stochastic Search...")
-    # 1 Deterministic run + 20 Noisy runs
+    
     for run in range(100):
         use_noise = (run > 0)
         try:
@@ -366,15 +337,13 @@ def solve_puzzle_hybrid(pieces, grid_n):
         print("  Failed to find valid grid.")
         return None
 
-    # --- PART 2: SHIFTER (The Paper's Improvement) ---
+ 
     print("  Phase 2: Shifter Optimization...")
     final_grid = run_shifter_phase(pieces, grid_n, best_grid, costs)
     
     return final_grid
 
-# ==========================================
-# 7. EXECUTION
-# ==========================================
+
 def process_file(path, fname, out_folder, grid_n):
     img = cv2.imread(path)
     if img is None: return

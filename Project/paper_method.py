@@ -37,6 +37,7 @@ def smart_crop(img):
     if (right - left) < (width * 0.5) or (bottom - top) < (height * 0.5): return img
     return img[top:bottom, left:right]
 
+
 def get_canny_edges(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray, 50, 150)
@@ -90,7 +91,7 @@ def get_match_cost(piece_a, piece_b, edge_a_map, edge_b_map, relation):
 
 #Best Buddies
 
-def calculate_best_bottomuddies_score(grid, costs):
+def calculate_best_buddies_score(grid, costs):
 
     height, width = grid.shape
     buddies = 0
@@ -261,7 +262,7 @@ def solve_puzzle(pieces, dimension):
     # Deterministic
     grid = solve_single_run(pieces, dimension, costs, use_noise=False)
     if grid is not None and grid.shape == (dimension, dimension):
-        score = calculate_best_bottomuddies_score(grid, costs)
+        score = calculate_best_buddies_score(grid, costs)
         best_grid = grid
         best_score = score
 
@@ -269,7 +270,7 @@ def solve_puzzle(pieces, dimension):
         try:
             grid = solve_single_run(pieces, dimension, costs, use_noise=True)
             if grid is not None and grid.shape == (dimension, dimension):
-                score = calculate_best_bottomuddies_score(grid, costs)
+                score = calculate_best_buddies_score(grid, costs)
                 if score > best_score:
                     best_score = score
                     best_grid = grid
