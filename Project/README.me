@@ -1,0 +1,172 @@
+# Fully Automated Square Jigsaw Puzzle Solver
+
+This project implements a fully automated square jigsaw puzzle solver inspired by the paper  
+“A Fully Automated Greedy Square Jigsaw Puzzle Solver” by Pomeranz et al. (CVPR 2011).
+
+The goal of the system is to reconstruct an original image from a set of shuffled square puzzle pieces using only visual information. The solver follows a greedy strategy enhanced with confidence estimation, best-buddy relationships, and multiple randomized runs to improve robustness.
+
+---
+
+## Dataset Organization
+
+The dataset is organized into folders based on puzzle size:
+
+puzzle_2x2  
+puzzle_4x4  
+puzzle_8x8  
+
+Each folder contains complete images. Puzzle pieces are extracted automatically during execution.
+
+---
+
+## Processing Pipeline
+
+The complete pipeline consists of the following stages:
+
+1. Dataset traversal  
+2. Image preprocessing  
+3. Puzzle piece extraction  
+4. Pairwise compatibility computation  
+5. Multi-start greedy assembly  
+6. Confidence scoring using best buddies  
+7. Best solution selection  
+8. Image reconstruction and saving  
+
+Each stage contributes to reducing ambiguity and improving the correctness of the final reconstructed image.
+
+---
+
+## Methodology
+
+### Dataset Traversal
+
+The system iterates over all dataset folders and processes each image independently. This design allows the same pipeline to be applied to multiple puzzle sizes without modification.
+
+---
+
+### Image Preprocessing
+
+Each image is optionally cropped to remove uniform or empty borders. Canny edge detection is applied to all puzzle pieces to extract structural information.
+
+Edge information is particularly important for cartoon-style images where color gradients are weak or misleading. Edges capture object boundaries and outlines that help guide correct matching.
+
+---
+
+### Puzzle Piece Extraction
+
+Each image is divided into equal-sized square pieces. Using square pieces eliminates rotation and scale ambiguity and ensures perfect pixel alignment between neighboring pieces.
+
+This simplifies the problem and allows the solver to focus entirely on visual compatibility.
+
+---
+
+### Pairwise Compatibility Computation
+
+For every ordered pair of pieces, compatibility scores are computed in all four directions: right, left, down, and up.
+
+Each compatibility score is composed of three components:
+
+- Color difference along the shared boundary in LAB color space  
+- Gradient continuity based on local color trends  
+- Edge continuity based on Canny edge alignment  
+
+Combining multiple cues makes the matching robust to both textured and flat regions.
+
+---
+
+### Activity Scoring
+
+Each piece receives an activity score based on the number of detected edge pixels. Pieces with higher activity contain more structural information and are generally easier to place correctly.
+
+High-activity pieces are preferred during the initial seeding stage to reduce early ambiguity.
+
+---
+
+### Smart Seed Selection
+
+The assembly process begins from a pair of best-buddy pieces. Two pieces are considered best buddies if each selects the other as its best match in opposite directions.
+
+Only pairs involving at least one high-activity piece are considered. This ensures a confident and informative starting point for the greedy assembly.
+
+---
+
+### Multi-Start Greedy Assembly
+
+The puzzle is assembled using a greedy strategy that places one piece at a time.
+
+At each step:
+- Only empty slots adjacent to already placed pieces are considered  
+- Candidate pieces are evaluated based on average compatibility with neighboring pieces  
+- The placement with the highest confidence is selected  
+
+To avoid local minima, the solver performs multiple greedy runs. Some runs introduce small random noise into the compatibility matrix, allowing exploration of alternative configurations.
+
+---
+
+### Confidence Ratio Decision Rule
+
+For each candidate placement, a confidence score is computed as the ratio between the second-best cost and the best cost.
+
+A high ratio indicates that the best choice is clearly better than alternatives. This prevents ambiguous placements and delays decisions until sufficient context is available.
+
+---
+
+### Best-Buddy Confidence Scoring
+
+After each greedy run, the assembled grid is evaluated using a best-buddy confidence score. This score measures the fraction of adjacent piece pairs that are mutual best buddies.
+
+This provides a global measure of consistency and correlates strongly with correct overall reconstruction.
+
+---
+
+### Best Solution Selection
+
+Among all greedy runs, the solution with the highest best-buddy confidence score is selected as the final result.
+
+This approach reduces dependence on a single run and increases robustness against early greedy mistakes.
+
+---
+
+### Image Reconstruction and Saving
+
+The selected grid is reconstructed into a full image by placing each puzzle piece into its grid position. The final reconstructed image is then saved to disk.
+
+---
+
+## Evaluation
+
+Since the original images are available, evaluation can be performed by comparing the reconstructed image to the ground truth using pixel-based metrics such as Mean Squared Error (MSE).
+
+This reflects overall reconstruction quality rather than only local neighbor correctness.
+
+---
+
+## Design Choices and Justification
+
+Square puzzle pieces simplify alignment and eliminate rotation ambiguity.  
+Edge and gradient features provide strong cues for cartoon-style images.  
+Activity-based seeding avoids ambiguous starting configurations.  
+Multi-start greedy assembly improves robustness and reduces local minima.  
+Best-buddy scoring provides a reliable global quality measure.  
+
+Each design choice directly contributes to improving reconstruction accuracy and stability.
+
+---
+
+## Reference
+
+Pomeranz, D., Shemesh, M., and Ben-Shahar, O.  
+A Fully Automated Greedy Square Jigsaw Puzzle Solver  
+IEEE Conference on Computer Vision and Pattern Recognition, 2011
+
+---
+
+## Repository
+
+https://github.com/Knighler/Puzzles-Image-Processing
+
+---
+
+## Future Work
+
+Possible future extensions include segment-based merging and shifting, rotation-invariant matching, and learning-based compatibility metrics.
