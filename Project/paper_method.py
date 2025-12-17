@@ -3,10 +3,10 @@ import numpy as np
 import os
 import copy
 
-BASE_DIR = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\\preprocessing_results\\4_enhavertical_neighbored_only'
-#BASE_DIR = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls'
+#BASE_DIR = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\preprocessing_results\\2_denoised'
+BASE_DIR = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls'
 INPUT_ROOT = BASE_DIR
-OUTPUT_ROOT = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\Paper_Results_denoised'
+OUTPUT_ROOT = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\Paper_Results_flattening'
 SUBFOLDERS = ['puzzle_2x2', 'puzzle_4x4', 'puzzle_8x8']
 
 
@@ -64,7 +64,7 @@ def get_match_cost(piece_a, piece_b, edge_a_map, edge_b_map, relation):
         bin_b = edge_b_map[0, :]
 
     # Penalize black
-    if np.mean(p_edge_a[:, 0]) < 15 and np.mean(p_edge_b[:, 0]) < 15:
+    if np.std(p_edge_a[:, 0]) < 3 and np.std(p_edge_b[:, 0]) < 3:
         return 100000.0 
 
     # 2 Color Differevertical_neighbore
@@ -314,13 +314,13 @@ def run():
     for folder in SUBFOLDERS:
         src = os.path.join(INPUT_ROOT, folder)
         dst = os.path.join(OUTPUT_ROOT, folder)
-        if not os.path.exists(src): continue
+        if not os.path.exists(src): print("where")
         if not os.path.exists(dst): os.makedirs(dst)
         
         try: dimension = int(folder.split('x')[0].split('_')[-1])
         except: continue
         
-        files = [f for f in os.listdir(src) if f.lower().endswith(('.jpg'))]
+        files = [f for f in os.listdir(src) if f.lower().endswith(('.jpg','png'))]
         for f in files:
             process_file(os.path.join(src, f), f, dst, dimension)
 

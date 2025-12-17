@@ -30,7 +30,7 @@ def slice_image_grid(image, grid_n):
     return pieces
 
 def apply_denoising_NLM(piece):
-    return cv2.fastNlMeansDenoisingColored(piece, None, 2, 1, 9, 21)
+    return cv2.fastNlMeansDenoisingColored(piece, None, 15, 15, 9, 21)
 
 def apply_denoising_gaussian(piece):
     return cv2.GaussianBlur(piece, (5, 5), 0)
@@ -45,12 +45,13 @@ def apply_sharpening_laplacian(piece):
     lab = cv2.cvtColor(piece, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     kernel = np.array([[0, -1, 0], 
-                       [-1, 4, -1], 
+                       [-1, 5, -1], 
                        [0, -1, 0]])
     
     l_sharpened = cv2.filter2D(l, -1, kernel)
     merged = cv2.merge((l_sharpened, a, b))
     return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+
 
 def apply_enhancement_HE(piece):
     lab = cv2.cvtColor(piece, cv2.COLOR_BGR2LAB)
@@ -69,16 +70,15 @@ def apply_enhancement(piece):
 
 def run_preprocessing():
     if not os.path.exists(INPUT_ROOT):
-        print(f"Error: Input path not found: {INPUT_ROOT}")
+  
         return
 
     for subfolder in SUBFOLDERS:
         input_folder_path = os.path.join(INPUT_ROOT, subfolder)
         if not os.path.exists(input_folder_path):
-            print(f"Skipping {subfolder},not found")
+    
             continue
 
-        print(f"///////////// Processing {subfolder} ")
         try:
             before_x = subfolder.split('x')[0]
             if '_' in before_x:
@@ -87,7 +87,7 @@ def run_preprocessing():
                 number_str = before_x
             grid_n = int(number_str)
         except:
-            print(f"Error parsing size for {subfolder}")
+
             continue
 
         files = [f for f in os.listdir(input_folder_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
@@ -108,18 +108,20 @@ def run_preprocessing():
                 
             #save_piece(img, "1_sliced", subfolder, base_name)
 
-            denoised_piece = apply_denoising_NLM(img)
+
+            #enhanced_piece = apply_enhancement(denoised_piece)
+            #save_piece(enhanced_piece, "3_enhanced", subfolder, base_name)
+
+            enhanced_piece_1 = apply_enhancement(img)
+            save_piece(enhanced_piece_1, "4_enhanced_only", subfolder, base_name)
+
+            enhanced_piece=apply_sharpening_laplacian(enhanced_piece_1)
+            save_piece(enhanced_piece, "5_laplacian", subfolder, base_name)
+            
+            denoised_piece = apply_denoising_NLM(enhanced_piece)
             save_piece(denoised_piece, "2_denoised", subfolder, base_name)
 
-            enhanced_piece = apply_enhancement(denoised_piece)
-            save_piece(enhanced_piece, "3_enhanced", subfolder, base_name)
 
-            enhanced_piece = apply_enhancement(img)
-            save_piece(enhanced_piece, "4_enhanced_only", subfolder, base_name)
-
-            #print(f"Processed {file} ,{len(raw_pieces)} pieces generated")
-
-    print("\nProcessing Complete")
 
 if __name__ == "__main__":
     run_preprocessing()

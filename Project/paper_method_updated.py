@@ -3,15 +3,16 @@ import numpy as np
 import os
 import copy
 
+#BASE_DIR = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\preprocessing_results\\2_denoised'
 BASE_DIR = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls'
 INPUT_ROOT = BASE_DIR
-OUTPUT_ROOT = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\Paper_Results_Updated'
+OUTPUT_ROOT = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\Paper_Results_Updated_flattening'
 SUBFOLDERS = ['puzzle_2x2', 'puzzle_4x4', 'puzzle_8x8']
 
 
 W_COLOR = 1
 W_GRADIENT = 0.2
-W_EDGE_CONTINUITY = 15 
+W_EDGE_CONTINUITY = 10 
 
 
 def smart_crop(img):
@@ -33,7 +34,6 @@ def smart_crop(img):
 
 def get_canny_edges(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (3, 3), 0)
     edges = cv2.Canny(gray, 50, 150)
     return edges
 
@@ -51,7 +51,7 @@ def get_match_cost(piece_a, piece_b, edge_a_map, edge_b_map, relation):
         p_inner_a = A[-2, :, :] 
         bin_a, bin_b = edge_a_map[-1, :], edge_b_map[0, :]
 
-    if np.mean(p_edge_a[:, 0]) < 15 and np.mean(p_edge_b[:, 0]) < 15:
+    if np.std(p_edge_a[:, 0]) < 3 and np.std(p_edge_b[:, 0]) < 3:
         return 100000.0 
 
     color_diff = np.sum(np.abs(p_edge_a - p_edge_b))
@@ -105,6 +105,8 @@ def calculate_best_buddies_score(grid, costs):
 def solve_single_run(pieces, grid_n, costs, initial_grid=None, use_noise=False):
     num_pieces = len(pieces)
     
+    if np.isnan(costs).any() or np.isinf(costs).any():
+        costs = np.nan_to_num(costs, nan=1e9, posinf=1e9, neginf=1e9)
  
     run_costs = costs.copy()
     if use_noise:
@@ -275,7 +277,7 @@ def run_shifter_phase(pieces, grid_n, initial_best_grid, costs):
     current_score = calculate_best_buddies_score(current_grid, costs)
 
     
-    for i in range(10): 
+    for i in range(20): 
         segment = find_largest_consistent_segment(current_grid, costs)
         if segment is None: break
         count_placed = np.sum(segment != -1)
@@ -291,11 +293,9 @@ def run_shifter_phase(pieces, grid_n, initial_best_grid, costs):
         new_score = calculate_best_buddies_score(new_grid, costs)
         
         if new_score > current_score:
-            print(f"    [Shifter] Improved! {current_score:.2f} -> {new_score:.2f} (Segment size: {count_placed})")
             current_grid = new_grid
             current_score = new_score
         else:
-            print("    [Shifter] No improvement.")
             break
             
     return current_grid
@@ -304,8 +304,7 @@ def run_shifter_phase(pieces, grid_n, initial_best_grid, costs):
 def solve_puzzle_hybrid(pieces, grid_n):
     num_pieces = len(pieces)
     edge_maps = [get_canny_edges(p) for p in pieces]
-    
-    print("  Calculating Cost Matrix...")
+
     costs = np.full((num_pieces, num_pieces, 4), np.inf)
     for i in range(num_pieces):
         for j in range(num_pieces):
@@ -319,8 +318,6 @@ def solve_puzzle_hybrid(pieces, grid_n):
     best_grid = None
     best_score = -1
     
-    print("  Phase 1: Stochastic Search...")
-    
     for run in range(100):
         use_noise = (run > 0)
         try:
@@ -330,15 +327,12 @@ def solve_puzzle_hybrid(pieces, grid_n):
                 if score > best_score:
                     best_score = score
                     best_grid = grid
-                    print(f"    Run {run}: Found new best score {score:.2f}")
+            
         except: continue
 
     if best_grid is None:
-        print("  Failed to find valid grid.")
         return None
 
- 
-    print("  Phase 2: Shifter Optimization...")
     final_grid = run_shifter_phase(pieces, grid_n, best_grid, costs)
     
     return final_grid
@@ -384,11 +378,10 @@ def run():
         
         try: grid_n = int(folder.split('x')[0].split('_')[-1])
         except: continue
-        
-        print(f"\nProcessing {folder} (Grid: {grid_n}x{grid_n})...")
+
         files = [f for f in os.listdir(src) if f.lower().endswith(('.jpg','.png'))]
         for f in files:
-            print(f" File: {f}")
+
             process_file(os.path.join(src, f), f, dst, grid_n)
 
 if __name__ == "__main__":
