@@ -6,7 +6,6 @@ import csv
 
 corrected_folder = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\correct'
 
-# The folder containing YOUR SOLVER'S output
 result_folder = 'E:\\ASU\\Fall 25\\Image\\Project\\Raw Images\\Gravity Falls\\Paper_Results'
 
 
@@ -58,4 +57,5 @@ def run_comparison():
                 writer.writerow([folder_name, file_name, mse_value])
                 
 if __name__ == "__main__":
+
     run_comparison()
